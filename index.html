@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BudgetMaster</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{--bg:#0b1020;--card:#111936;--muted:#94a3b8;--text:#e2e8f0;--accent:#38bdf8;--danger:#ef4444;--ok:#22c55e}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#0b1020,#0b1020 60%,#0f172a);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.header{position:sticky;top:0;backdrop-filter:saturate(180%) blur(14px);background:#0b1020cc;border-bottom:1px solid #1f2a48;z-index:10}
+.container{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0;padding:14px 0}
+.tabs{display:flex;gap:8px;padding:8px 0}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:#0e1630;border:1px solid #1f2a48;color:#cbd5e1}
+.tab.active{background:#162349;color:#fff}
+.grid{display:grid;gap:12px}
+.card{background:var(--card);border:1px solid #1f2a48;border-radius:14px;padding:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+button, input, select{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:#0e1630;color:#e2e8f0}
+button.primary{background:#1e293b;border:1px solid #334155}
+button.cta{background:var(--accent);color:#00111f;font-weight:700}
+small{color:var(--muted)}
+input[type="number"]{width:140px}
+.progress{height:8px;background:#0e1630;border-radius:20px;overflow:hidden}
+.progress > i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#38bdf8)}
+.list{display:flex;flex-direction:column;gap:10px}
+.badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #233059;background:#0d142c;color:#9fb0cc}
+.kbd{font-family:ui-monospace,Menlo,Monaco,monospace;background:#0d142c;border:1px solid #1f2a48;border-radius:6px;padding:0 6px}
+.hidden{display:none}
+.footer{padding:24px 0;color:#789}
+canvas{width:100%;height:220px;background:#0e1630;border-radius:12px;border:1px solid #1f2a48}
+.pin-wrap{display:flex;gap:10px}
+.pin-wrap input{width:44px;text-align:center;font-size:20px;letter-spacing:2px}
+</style>
+<script defer src="app.js"></script>
+<script defer src="db.js"></script>
+<script defer src="charts.js"></script>
+</head>
+<body>
+<header class="header">
+  <div class="container">
+    <h1>BudgetMaster — PWA</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">Tableau de bord</button>
+      <button class="tab" data-tab="tx">Transactions</button>
+      <button class="tab" data-tab="envelopes">Cagnottes</button>
+      <button class="tab" data-tab="settings">Réglages</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <!-- LOCK -->
+  <section id="lock" class="card hidden">
+    <h2>Déverrouillage</h2>
+    <p>Entrez votre code PIN pour accéder à l’app.</p>
+    <div class="pin-wrap">
+      <input maxlength="1" pattern="[0-9]*" inputmode="numeric">
+      <input maxlength="1" pattern="[0-9]*" inputmode="numeric">
+      <input maxlength="1" pattern="[0-9]*" inputmode="numeric">
+      <input maxlength="1" pattern="[0-9]*" inputmode="numeric">
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnUnlock" class="cta">Déverrouiller</button>
+      <button id="btnResetPin" class="primary">Réinitialiser le PIN</button>
+    </div>
+    <small id="lockMsg"></small>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="dashboard" class="grid">
+    <div class="card">
+      <div class="row">
+        <div>
+          <div><small>Dépenses du mois</small></div>
+          <div id="totalSpend" style="font-size:28px;font-weight:800">0 DZD</div>
+        </div>
+        <button id="btnNotify" class="primary">Tester notification</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Par catégorie</h3>
+      <div id="catList" class="list"></div>
+    </div>
+
+    <div class="card">
+      <h3>Tendance (mois)</h3>
+      <canvas id="chart"></canvas>
+    </div>
+  </section>
+
+  <!-- TRANSACTIONS -->
+  <section id="tx" class="grid hidden">
+    <div class="card">
+      <h3>Nouvelle transaction</h3>
+      <div class="row">
+        <select id="txType">
+          <option value="out">Dépense</option>
+          <option value="in">Revenu</option>
+        </select>
+        <input id="txAmount" type="number" placeholder="Montant (DZD)">
+        <select id="txCat"></select>
+      </div>
+      <input id="txNote" placeholder="Note (optionnel)" style="margin-top:10px;width:100%">
+      <div class="row" style="margin-top:10px">
+        <label><input type="checkbox" id="txReimb"> Note de frais</label>
+        <button id="btnAddTx" class="cta">Ajouter</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Historique</h3>
+      <div id="txList" class="list"></div>
+    </div>
+  </section>
+
+  <!-- ENVELOPES -->
+  <section id="envelopes" class="grid hidden">
+    <div class="card">
+      <h3>Nouvelle cagnotte</h3>
+      <div class="row">
+        <input id="envName" placeholder="Nom">
+        <input id="envMonthly" type="number" placeholder="Allocation mensuelle">
+        <input id="envTarget" type="number" placeholder="Objectif (optionnel)">
+        <button id="btnAddEnv" class="cta">Créer</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Mes cagnottes</h3>
+      <div id="envList" class="list"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings" class="grid hidden">
+    <div class="card">
+      <h3>Sécurité</h3>
+      <div class="row">
+        <label><input type="checkbox" id="lockOnLaunch"> Verrouiller au lancement</label>
+        <label><input type="checkbox" id="lockEnvelopes"> Protéger l’accès cagnottes</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="pin1" type="password" inputmode="numeric" placeholder="Nouveau PIN (4 chiffres)">
+        <input id="pin2" type="password" inputmode="numeric" placeholder="Confirmer PIN">
+        <button id="btnSetPin" class="primary">Définir le PIN</button>
+      </div>
+      <small>Astuce: crée un **Raccourci** iOS “Ouvrir URL BudgetMaster” avec **Exiger Face ID** pour une sécurité additionnelle.</small>
+    </div>
+    <div class="card">
+      <h3>Devise</h3>
+      <input id="currency" placeholder="Devise" value="DZD">
+    </div>
+    <div class="card">
+      <h3>Export / Import</h3>
+      <div class="row">
+        <button id="btnExport" class="primary">Exporter JSON</button>
+        <input id="fileImport" type="file" accept="application/json">
+        <button id="btnImport" class="primary">Importer</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Catégories par défaut</h3>
+      <button id="btnDefaults" class="primary">Charger mes catégories</button>
+    </div>
+    <div class="footer">
+      BudgetMaster PWA © 2025 — Offline, privé, local.
+    </div>
+  </section>
+</main>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+</body>
+</html>
